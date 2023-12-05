@@ -343,11 +343,16 @@ impl Shell {
             warn!("Failed to change kernel status to busy: {}", err)
         }
 
-        // Store this message as a pending RPC request so that when the comm
-        // responds, we can match it up
-        self.comm_manager_tx
-            .send(CommManagerEvent::PendingRpc(req.header.clone()))
-            .unwrap();
+        if req.content.data.get("method").is_some() {
+            // If there is a method field this is a request from the frontend.
+            // Store this message as a pending RPC request so that when the comm
+            // responds, we can match it up.
+            self.comm_manager_tx
+                .send(CommManagerEvent::PendingRpc(req.header.clone()))
+                .unwrap();
+        } else {
+            // Otherwise this is an RPC response from the frontend, just fall through
+        }
 
         // Send the message to the comm
         let msg = CommMsg::Rpc(req.header.msg_id.clone(), req.content.data.clone());

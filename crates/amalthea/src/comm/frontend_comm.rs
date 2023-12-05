@@ -24,7 +24,7 @@ pub enum FrontendMessage {
 #[serde(rename_all = "snake_case")]
 pub struct JsonRpcRequest {
     pub method: String,
-    pub params: Vec<Value>,
+    pub params: Vec<Value>, // Should we use Value::Object() instead?
 }
 
 #[derive(Debug, Serialize, Deserialize)]

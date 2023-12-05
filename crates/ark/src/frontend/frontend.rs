@@ -141,6 +141,14 @@ impl PositronFrontend {
                             log::warn!("Error handling RPC request from front end: {:?}", err);
                         }
                     },
+                    FrontendMessage::RpcResultResponse(req) => {
+                        // HERE
+                        // Match reply and unblock R?
+                        // In theory we have a single request at any time. No concurrency really.
+                    },
+                    FrontendMessage::RpcResultError(req) => {
+                        todo!();
+                    },
                     _ => {
                         log::warn!("Unexpected RPC message from front end: {:?}", message);
                     },

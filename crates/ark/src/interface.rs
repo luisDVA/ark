@@ -20,6 +20,7 @@ use std::sync::Once;
 use std::time::Duration;
 
 use amalthea::comm::event::CommManagerEvent;
+use amalthea::comm::frontend_comm::JsonRpcRequest;
 use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::PromptStateEvent;
@@ -971,6 +972,28 @@ impl RMain {
     pub fn get_kernel(&self) -> &Arc<Mutex<Kernel>> {
         &self.kernel
     }
+
+    // Use try_from()?
+
+    pub fn call_frontend_method(method: String, params: Vec<serde_json::Value>) -> SEXP {
+        let (response_tx, response_rx) = bounded(1);
+
+        let request = FrontendRpcRequest {
+            response_tx,
+            request: JsonRpcRequest { method, params },
+        };
+        // send()
+        // Create request and block for response
+
+        // Convert conversion errors to R errors
+        let result = response_rx.recv();
+        result.try_into().unwrap()
+    }
+}
+
+struct FrontendRpcRequest {
+    response_tx: Sender<serde_json::Value>,
+    request: JsonRpcRequest,
 }
 
 /// Report an incomplete request to the front end

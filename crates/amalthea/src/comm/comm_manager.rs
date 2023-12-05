@@ -146,6 +146,8 @@ impl CommManager {
                     self.pending_rpcs.insert(header.msg_id.clone(), header);
                 },
 
+                // WIP? Or should we match in frontend?
+
                 // A message was received from the front end
                 CommManagerEvent::Message(comm_id, msg) => {
                     // Find the index of the comm in the vector
