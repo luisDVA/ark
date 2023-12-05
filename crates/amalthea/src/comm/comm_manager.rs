@@ -146,7 +146,19 @@ impl CommManager {
                     self.pending_rpcs.insert(header.msg_id.clone(), header);
                 },
 
-                // WIP? Or should we match in frontend?
+                CommManagerEvent::RpcResponse(id, result) => {
+                    match self.pending_reverse_rpcs.remove(&id) {
+                        Some(response_tx) => {
+                            // Send result to caller
+                            if let Err(err) = response_tx.send(result) {
+                                log::error!("Can't reply to RPC caller: {err:?}");
+                            }
+                        },
+                        None => {
+                            log::error!("Unknown recipient for RPC response");
+                        },
+                    }
+                },
 
                 // A message was received from the front end
                 CommManagerEvent::Message(comm_id, msg) => {

@@ -16,7 +16,6 @@ use amalthea::comm::frontend_comm::JsonRpcResult;
 use amalthea::events::PositronEvent;
 use amalthea::socket::comm::CommSocket;
 use amalthea::wire::client_event::ClientEvent;
-use crossbeam::channel::bounded;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
 use crossbeam::select;
@@ -24,7 +23,6 @@ use harp::exec::RFunction;
 use harp::exec::RFunctionExt;
 use harp::object::RObject;
 use log::info;
-use serde::Serialize;
 use serde_json::Value;
 use stdext::spawn;
 use stdext::unwrap;
@@ -34,7 +32,13 @@ use crate::r_task;
 #[derive(Debug)]
 pub enum PositronFrontendMessage {
     Event(PositronEvent),
-    Request(JsonRpcRequest),
+    Request(PositronFrontendRpcRequest),
+}
+
+#[derive(Debug)]
+pub struct PositronFrontendRpcRequest {
+    pub response_tx: Sender<serde_json::Value>,
+    pub request: JsonRpcRequest,
 }
 
 /// PositronFrontend is a wrapper around a comm channel whose lifetime matches
@@ -77,7 +81,7 @@ impl PositronFrontend {
                     });
                     match msg {
                         PositronFrontendMessage::Event(event) => self.dispatch_event(&event),
-                        PositronFrontendMessage::Request(_) => todo!(),
+                        PositronFrontendMessage::Request(request) => self.call_frontend_method(&request).unwrap(),
                     }
                 },
 
@@ -141,14 +145,7 @@ impl PositronFrontend {
                             log::warn!("Error handling RPC request from front end: {:?}", err);
                         }
                     },
-                    FrontendMessage::RpcResultResponse(req) => {
-                        // HERE
-                        // Match reply and unblock R?
-                        // In theory we have a single request at any time. No concurrency really.
-                    },
-                    FrontendMessage::RpcResultError(req) => {
-                        todo!();
-                    },
+
                     _ => {
                         log::warn!("Unexpected RPC message from front end: {:?}", message);
                     },
@@ -230,17 +227,14 @@ impl PositronFrontend {
         Ok(())
     }
 
-    /// Send request to frontend and block until reply
-    pub fn call_frontend_method<T>(&self, method: String, params: T) -> anyhow::Result<Value>
-    where
-        T: Serialize,
-    {
-        let (tx, rx) = bounded::<Value>(1);
-
-        let request = RpcRequest::new(method, params)?;
-        let comm_msg = CommMsg::ReverseRpc(tx, request);
+    fn call_frontend_method(&self, request: &PositronFrontendRpcRequest) -> anyhow::Result<()> {
+        let wire_request = RpcRequest::new(
+            request.request.method.clone(),
+            request.request.params.clone(),
+        )?;
+        let comm_msg = CommMsg::ReverseRpc(request.response_tx.clone(), wire_request);
         self.comm.outgoing_tx.send(comm_msg)?;
 
-        Ok(rx.recv()?)
+        Ok(())
     }
 }

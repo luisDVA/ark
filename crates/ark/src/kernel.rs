@@ -8,7 +8,6 @@
 use std::path::PathBuf;
 use std::result::Result::Err;
 
-use amalthea::comm::frontend_comm::JsonRpcRequest;
 use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::WorkingDirectoryEvent;
@@ -17,6 +16,7 @@ use crossbeam::channel::Sender;
 use log::*;
 
 use crate::frontend::frontend::PositronFrontendMessage;
+use crate::frontend::frontend::PositronFrontendRpcRequest;
 use crate::interface::RMain;
 use crate::r_task;
 use crate::request::KernelRequest;
@@ -109,7 +109,7 @@ impl Kernel {
     pub fn send_frontend_event(&self, event: PositronEvent) {
         self.send_frontend(PositronFrontendMessage::Event(event))
     }
-    pub fn send_frontend_request(&self, request: JsonRpcRequest) {
+    pub fn send_frontend_request(&self, request: PositronFrontendRpcRequest) {
         self.send_frontend(PositronFrontendMessage::Request(request))
     }
 

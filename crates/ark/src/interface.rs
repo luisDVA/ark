@@ -84,6 +84,7 @@ use stdext::*;
 use crate::dap::dap::DapBackendEvent;
 use crate::dap::Dap;
 use crate::errors;
+use crate::frontend::frontend::PositronFrontendRpcRequest;
 use crate::help::message::HelpReply;
 use crate::help::message::HelpRequest;
 use crate::kernel::Kernel;
@@ -975,25 +976,26 @@ impl RMain {
 
     // Use try_from()?
 
-    pub fn call_frontend_method(method: String, params: Vec<serde_json::Value>) -> SEXP {
+    pub fn call_frontend_method(&self, method: String, params: Vec<serde_json::Value>) -> SEXP {
         let (response_tx, response_rx) = bounded(1);
 
-        let request = FrontendRpcRequest {
+        let request = PositronFrontendRpcRequest {
             response_tx,
             request: JsonRpcRequest { method, params },
         };
-        // send()
+
+        {
+            let kernel = self.kernel.lock().unwrap();
+            kernel.send_frontend_request(request);
+        }
+
         // Create request and block for response
+        let _result = response_rx.recv();
 
-        // Convert conversion errors to R errors
-        let result = response_rx.recv();
-        result.try_into().unwrap()
+        // TODO: Convert conversion errors to R errors
+        // result.try_into().unwrap()
+        unsafe { R_NilValue }
     }
-}
-
-struct FrontendRpcRequest {
-    response_tx: Sender<serde_json::Value>,
-    request: JsonRpcRequest,
 }
 
 /// Report an incomplete request to the front end

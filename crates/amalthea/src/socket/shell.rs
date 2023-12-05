@@ -343,22 +343,36 @@ impl Shell {
             warn!("Failed to change kernel status to busy: {}", err)
         }
 
-        if req.content.data.get("method").is_some() {
+        let data = req.content.data.clone();
+
+        // FIXME: More robust RPC detection
+
+        if data.get("method").is_some() {
             // If there is a method field this is a request from the frontend.
             // Store this message as a pending RPC request so that when the comm
             // responds, we can match it up.
             self.comm_manager_tx
                 .send(CommManagerEvent::PendingRpc(req.header.clone()))
                 .unwrap();
-        } else {
-            // Otherwise this is an RPC response from the frontend, just fall through
-        }
 
-        // Send the message to the comm
-        let msg = CommMsg::Rpc(req.header.msg_id.clone(), req.content.data.clone());
-        self.comm_manager_tx
-            .send(CommManagerEvent::Message(req.content.comm_id.clone(), msg))
-            .unwrap();
+            // Send the message to the comm
+            let msg = CommMsg::Rpc(req.header.msg_id.clone(), data);
+            self.comm_manager_tx
+                .send(CommManagerEvent::Message(req.content.comm_id.clone(), msg))
+                .unwrap();
+        } else if data.get("result").is_some() {
+            // TODO: error response case
+
+            // If there is no method field this is a response from the frontend
+            // for an RPC request initiated by the backend. The comm manager is
+            // in charge of passing the response to the caller.
+            self.comm_manager_tx
+                .send(CommManagerEvent::RpcResponse(
+                    req.header.msg_id.clone(),
+                    data,
+                ))
+                .unwrap();
+        }
 
         // Return kernel to idle state
         if let Err(err) = self.send_state(req, ExecutionState::Idle) {
