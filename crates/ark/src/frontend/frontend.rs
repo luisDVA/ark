@@ -24,31 +24,38 @@ use harp::object::RObject;
 use log::info;
 use serde_json::Value;
 use stdext::spawn;
+use stdext::unwrap;
 
 use crate::r_task;
+
+#[derive(Debug)]
+pub enum PositronFrontendMessage {
+    Event(PositronEvent),
+    Request(JsonRpcRequest),
+}
 
 /// PositronFrontend is a wrapper around a comm channel whose lifetime matches
 /// that of the Positron front end. It is used to perform communication with the
 /// front end that isn't scoped to any particular view.
 pub struct PositronFrontend {
     comm: CommSocket,
-    event_rx: Receiver<PositronEvent>,
+    frontend_rx: Receiver<PositronFrontendMessage>,
 }
 
 impl PositronFrontend {
-    pub fn start(comm: CommSocket) -> Sender<PositronEvent> {
+    pub fn start(comm: CommSocket) -> Sender<PositronFrontendMessage> {
         // Create a sender-receiver pair for Positron global events
-        let (event_tx, event_rx) = crossbeam::channel::unbounded::<PositronEvent>();
+        let (frontend_tx, frontend_rx) = crossbeam::channel::unbounded::<PositronFrontendMessage>();
 
         spawn!("ark-comm-frontend", move || {
             let frontend = Self {
                 comm: comm.clone(),
-                event_rx: event_rx.clone(),
+                frontend_rx: frontend_rx.clone(),
             };
             frontend.execution_thread();
         });
 
-        event_tx
+        frontend_tx
     }
 
     fn execution_thread(&self) {
@@ -57,30 +64,28 @@ impl PositronFrontend {
             // Positron events to the frontend) or the comm channel (which
             // receives requests from the frontend)
             select! {
-                recv(&self.event_rx) -> event => {
-                    match event {
-                        Ok(event) => self.dispatch_event(&event),
-                        Err(err) => {
-                            log::error!(
-                                "Error receiving Positron event; closing event listener: {err:?}"
-                            );
-                            // Most likely the channel was closed, so we should stop the thread
-                            break;
-                        },
+                recv(&self.frontend_rx) -> msg => {
+                    let msg = unwrap!(msg, Err(err) => {
+                        log::error!(
+                            "Error receiving Positron event; closing event listener: {err:?}"
+                        );
+                        // Most likely the channel was closed, so we should stop the thread
+                        break;
+                    });
+                    match msg {
+                        PositronFrontendMessage::Event(event) => self.dispatch_event(&event),
+                        PositronFrontendMessage::Request(_) => todo!(),
                     }
                 },
+
                 recv(&self.comm.incoming_rx) -> msg => {
-                    match msg {
-                        Ok(msg) => {
-                            if !self.handle_comm_message(&msg) {
-                                info!("Frontend comm {} closing by request from front end.", self.comm.comm_id);
-                                break;
-                            }
-                        },
-                        Err(err) => {
-                            log::error!("Error receiving message from front end: {:?}", err);
-                            break;
-                        },
+                    let msg = unwrap!(msg, Err(err) => {
+                        log::error!("Error receiving message from front end: {:?}", err);
+                        break;
+                    });
+                    if !self.handle_comm_message(&msg) {
+                        info!("Frontend comm {} closing by request from front end.", self.comm.comm_id);
+                        break;
                     }
                 },
             }

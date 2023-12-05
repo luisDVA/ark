@@ -516,7 +516,7 @@ impl RMain {
                     continuation_prompt: info.continuation_prompt.clone(),
                 });
                 let kernel = self.kernel.lock().unwrap();
-                kernel.send_event(event);
+                kernel.send_frontend_event(event);
 
                 // Let frontend know the last request is complete. This turns us
                 // back to Idle.
@@ -882,7 +882,7 @@ impl RMain {
         // Wait for a lock on the kernel and have it deliver the event to
         // the front end
         let kernel = self.kernel.lock().unwrap();
-        kernel.send_event(event);
+        kernel.send_frontend_event(event);
     }
 
     /// Invoked by R to show a message to the user.
@@ -897,7 +897,7 @@ impl RMain {
         // Wait for a lock on the kernel and have the kernel deliver the
         // event to the front end
         let kernel = self.kernel.lock().unwrap();
-        kernel.send_event(event);
+        kernel.send_frontend_event(event);
     }
 
     /// Invoked by the R event loop
