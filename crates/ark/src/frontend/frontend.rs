@@ -7,11 +7,11 @@
 
 use amalthea::comm::comm_channel::CommMsg;
 use amalthea::comm::frontend_comm::FrontendMessage;
-use amalthea::comm::frontend_comm::FrontendRpcError;
-use amalthea::comm::frontend_comm::FrontendRpcErrorData;
-use amalthea::comm::frontend_comm::FrontendRpcRequest;
-use amalthea::comm::frontend_comm::FrontendRpcResult;
+use amalthea::comm::frontend_comm::JsonRpcError;
 use amalthea::comm::frontend_comm::JsonRpcErrorCode;
+use amalthea::comm::frontend_comm::JsonRpcErrorData;
+use amalthea::comm::frontend_comm::JsonRpcRequest;
+use amalthea::comm::frontend_comm::JsonRpcResult;
 use amalthea::events::PositronEvent;
 use amalthea::socket::comm::CommSocket;
 use amalthea::wire::client_event::ClientEvent;
@@ -145,11 +145,7 @@ impl PositronFrontend {
     /**
      * Handles an RPC request from the front end.
      */
-    fn handle_rpc_request(
-        &self,
-        id: &str,
-        request: &FrontendRpcRequest,
-    ) -> Result<(), anyhow::Error> {
+    fn handle_rpc_request(&self, id: &str, request: &JsonRpcRequest) -> Result<(), anyhow::Error> {
         // Today, all RPCs are fulfilled by R directly. Check to see if an R
         // method of the appropriate name is defined.
         //
@@ -170,9 +166,9 @@ impl PositronFrontend {
 
         if !exists {
             // No such method; return an error
-            let reply = FrontendMessage::RpcResultError(FrontendRpcError {
+            let reply = FrontendMessage::RpcResultError(JsonRpcError {
                 id: id.to_string(),
-                error: FrontendRpcErrorData {
+                error: JsonRpcErrorData {
                     code: JsonRpcErrorCode::MethodNotFound, // Method not found
                     message: format!("No such method: {}", request.method),
                 },
@@ -195,13 +191,13 @@ impl PositronFrontend {
 
         // Convert the reply to a message we can send to the front end
         let reply = match result {
-            Ok(value) => FrontendMessage::RpcResultResponse(FrontendRpcResult {
+            Ok(value) => FrontendMessage::RpcResultResponse(JsonRpcResult {
                 id: id.to_string(),
                 result: value,
             }),
-            Err(err) => FrontendMessage::RpcResultError(FrontendRpcError {
+            Err(err) => FrontendMessage::RpcResultError(JsonRpcError {
                 id: id.to_string(),
-                error: FrontendRpcErrorData {
+                error: JsonRpcErrorData {
                     code: JsonRpcErrorCode::InternalError,
                     message: err.to_string(),
                 },

@@ -7,10 +7,10 @@
 
 use amalthea::comm::comm_channel::CommMsg;
 use amalthea::comm::frontend_comm::FrontendMessage;
-use amalthea::comm::frontend_comm::FrontendRpcError;
-use amalthea::comm::frontend_comm::FrontendRpcRequest;
-use amalthea::comm::frontend_comm::FrontendRpcResult;
+use amalthea::comm::frontend_comm::JsonRpcError;
 use amalthea::comm::frontend_comm::JsonRpcErrorCode;
+use amalthea::comm::frontend_comm::JsonRpcRequest;
+use amalthea::comm::frontend_comm::JsonRpcResult;
 use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::socket::comm::CommInitiator;
@@ -50,7 +50,7 @@ fn test_frontend_comm() {
 
         // Send a message to the frontend
         let id = String::from("test-id-1");
-        let request = FrontendMessage::RpcRequest(FrontendRpcRequest {
+        let request = FrontendMessage::RpcRequest(JsonRpcRequest {
             method: String::from("setConsoleWidth"),
             params: vec![Value::from(123)],
         });
@@ -68,7 +68,7 @@ fn test_frontend_comm() {
         match response {
             CommMsg::Rpc(id, result) => {
                 println!("Got RPC result: {:?}", result);
-                let result = serde_json::from_value::<FrontendRpcResult>(result).unwrap();
+                let result = serde_json::from_value::<JsonRpcResult>(result).unwrap();
                 assert_eq!(id, "test-id-1");
                 // This RPC should return the old width
                 assert_eq!(result.result, Value::from(old_width));
@@ -90,7 +90,7 @@ fn test_frontend_comm() {
 
         // Now try to invoke an RPC that doesn't exist
         let id = String::from("test-id-2");
-        let request = FrontendMessage::RpcRequest(FrontendRpcRequest {
+        let request = FrontendMessage::RpcRequest(JsonRpcRequest {
             method: String::from("thisRpcDoesNotExist"),
             params: vec![],
         });
@@ -106,7 +106,7 @@ fn test_frontend_comm() {
         match response {
             CommMsg::Rpc(id, result) => {
                 println!("Got RPC result: {:?}", result);
-                let error = serde_json::from_value::<FrontendRpcError>(result).unwrap();
+                let error = serde_json::from_value::<JsonRpcError>(result).unwrap();
                 // Ensure that the error code is -32601 (method not found)
                 assert_eq!(id, "test-id-2");
                 assert_eq!(error.error.code, JsonRpcErrorCode::MethodNotFound);
