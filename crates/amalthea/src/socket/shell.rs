@@ -23,6 +23,11 @@ use crate::comm::comm_channel::Comm;
 use crate::comm::comm_channel::CommMsg;
 use crate::comm::event::CommManagerEvent;
 use crate::comm::event::CommShellEvent;
+use crate::comm::frontend_comm::JsonRpcError;
+use crate::comm::frontend_comm::JsonRpcErrorCode;
+use crate::comm::frontend_comm::JsonRpcErrorData;
+use crate::comm::frontend_comm::JsonRpcResponse;
+use crate::comm::frontend_comm::JsonRpcResult;
 use crate::comm::server_comm::ServerComm;
 use crate::error::Error;
 use crate::language::server_handler::ServerHandler;
@@ -361,16 +366,32 @@ impl Shell {
                 .send(CommManagerEvent::Message(req.content.comm_id.clone(), msg))
                 .unwrap();
         } else if data.get("result").is_some() {
-            // TODO: error response case
-
             // If there is no method field this is a response from the frontend
             // for an RPC request initiated by the backend. The comm manager is
             // in charge of passing the response to the caller.
             self.comm_manager_tx
-                .send(CommManagerEvent::RpcResponse(
-                    req.header.msg_id.clone(),
-                    data,
-                ))
+                .send(CommManagerEvent::RpcResponse(JsonRpcResponse::Result(
+                    JsonRpcResult {
+                        id: req.header.msg_id.clone(),
+                        result: data.get("result").unwrap().clone(),
+                    },
+                )))
+                .unwrap();
+        } else if data.get("error").is_some() {
+            let error = data.get("error").unwrap();
+            let code = error.get("code").unwrap();
+            let code: JsonRpcErrorCode = unsafe { std::mem::transmute(code) };
+
+            self.comm_manager_tx
+                .send(CommManagerEvent::RpcResponse(JsonRpcResponse::Error(
+                    JsonRpcError {
+                        id: req.header.msg_id.clone(),
+                        error: JsonRpcErrorData {
+                            message: error.get("message").unwrap().to_string(),
+                            code,
+                        },
+                    },
+                )))
                 .unwrap();
         }
 

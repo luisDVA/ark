@@ -12,6 +12,7 @@ use amalthea::comm::frontend_comm::JsonRpcError;
 use amalthea::comm::frontend_comm::JsonRpcErrorCode;
 use amalthea::comm::frontend_comm::JsonRpcErrorData;
 use amalthea::comm::frontend_comm::JsonRpcRequest;
+use amalthea::comm::frontend_comm::JsonRpcResponse;
 use amalthea::comm::frontend_comm::JsonRpcResult;
 use amalthea::events::PositronEvent;
 use amalthea::socket::comm::CommSocket;
@@ -37,7 +38,7 @@ pub enum PositronFrontendMessage {
 
 #[derive(Debug)]
 pub struct PositronFrontendRpcRequest {
-    pub response_tx: Sender<serde_json::Value>,
+    pub response_tx: Sender<JsonRpcResponse>,
     pub request: JsonRpcRequest,
 }
 

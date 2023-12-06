@@ -20,6 +20,12 @@ pub enum FrontendMessage {
     RpcResultError(JsonRpcError),
 }
 
+#[derive(Clone, Debug)]
+pub enum JsonRpcResponse {
+    Result(JsonRpcResult),
+    Error(JsonRpcError),
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct JsonRpcRequest {
@@ -27,28 +33,29 @@ pub struct JsonRpcRequest {
     pub params: Vec<Value>, // Should we use Value::Object() instead?
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct JsonRpcResult {
     pub id: String,
     pub result: Value,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "msg_type", rename_all = "snake_case")]
 pub struct JsonRpcError {
     pub id: String,
     pub error: JsonRpcErrorData,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct JsonRpcErrorData {
     pub message: String,
     pub code: JsonRpcErrorCode,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[repr(i64)]
 pub enum JsonRpcErrorCode {
     ParseError = -32700,
     InvalidRequest = -32600,
