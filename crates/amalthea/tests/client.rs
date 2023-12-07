@@ -377,6 +377,8 @@ fn test_kernel() {
         },
     }
 
+    // FIXME: JSON_RPC
+
     info!("Sending comm message to the test comm and waiting for a reply");
     let comm_req_id = frontend.send_shell(CommWireMsg {
         comm_id: comm_id.to_string(),

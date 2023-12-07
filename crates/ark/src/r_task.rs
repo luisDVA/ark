@@ -89,7 +89,7 @@ where
         };
         get_tasks_tx().send(task).unwrap();
 
-        let timeout = std::time::Duration::from_secs(5);
+        let timeout = std::time::Duration::from_secs(500);
 
         // Block until task was completed or timed out
         let status = select! {

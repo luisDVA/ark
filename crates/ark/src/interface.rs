@@ -21,6 +21,7 @@ use std::time::Duration;
 
 use amalthea::comm::event::CommManagerEvent;
 use amalthea::comm::frontend_comm::JsonRpcRequest;
+use amalthea::comm::frontend_comm::JsonRpcResponse;
 use amalthea::events::BusyEvent;
 use amalthea::events::PositronEvent;
 use amalthea::events::PromptStateEvent;
@@ -977,11 +978,16 @@ impl RMain {
     // Use try_from()?
 
     pub fn call_frontend_method(&self, method: String, params: Vec<serde_json::Value>) -> SEXP {
+        log::trace!("Calling frontend method '{method}'");
+
         let (response_tx, response_rx) = bounded(1);
 
         let request = PositronFrontendRpcRequest {
             response_tx,
-            request: JsonRpcRequest { method, params },
+            request: JsonRpcRequest {
+                method: method.clone(),
+                params,
+            },
         };
 
         {
@@ -990,11 +996,20 @@ impl RMain {
         }
 
         // Create request and block for response
-        let _result = response_rx.recv();
+        let response = response_rx.recv().unwrap();
 
-        // TODO: Convert conversion errors to R errors
-        // result.try_into().unwrap()
-        unsafe { R_NilValue }
+        log::trace!("Got response from frontend method '{method}'");
+
+        // TODO
+        match response {
+            JsonRpcResponse::Result(_result) => {
+                todo!("result");
+                // result.try_into().unwrap()
+            },
+            JsonRpcResponse::Error(_error) => {
+                todo!("error");
+            },
+        }
     }
 }
 

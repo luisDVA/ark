@@ -147,6 +147,8 @@ impl CommManager {
                 },
 
                 CommManagerEvent::RpcResponse(response) => {
+                    log::trace!("Got response from frontend method");
+
                     let id = match response {
                         JsonRpcResponse::Result(ref result) => &result.id,
                         JsonRpcResponse::Error(ref error) => &error.id,
