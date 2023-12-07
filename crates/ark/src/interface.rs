@@ -28,6 +28,7 @@ use amalthea::events::PromptStateEvent;
 use amalthea::events::ShowMessageEvent;
 use amalthea::socket::iopub::IOPubMessage;
 use amalthea::socket::iopub::Wait;
+use amalthea::socket::stdin::StdInRequest;
 use amalthea::wire::exception::Exception;
 use amalthea::wire::execute_error::ExecuteError;
 use amalthea::wire::execute_input::ExecuteInput;
@@ -124,7 +125,7 @@ pub fn start_r(
     kernel_mutex: Arc<Mutex<Kernel>>,
     comm_manager_tx: Sender<CommManagerEvent>,
     r_request_rx: Receiver<RRequest>,
-    input_request_tx: Sender<ShellInputRequest>,
+    stdin_request_tx: Sender<StdInRequest>,
     input_reply_rx: Receiver<InputReply>,
     iopub_tx: Sender<IOPubMessage>,
     kernel_init_tx: Bus<KernelInfo>,
@@ -144,7 +145,7 @@ pub fn start_r(
             tasks_rx,
             comm_manager_tx,
             r_request_rx,
-            input_request_tx,
+            stdin_request_tx,
             input_reply_rx,
             iopub_tx,
             kernel_init_tx,
@@ -203,7 +204,7 @@ pub struct RMain {
 
     /// Input requests to the frontend. Processed from `ReadConsole()`
     /// calls triggered by e.g. `readline()`.
-    input_request_tx: Sender<ShellInputRequest>,
+    stdin_request_tx: Sender<StdInRequest>,
 
     /// Input replies from the frontend. Waited on in `ReadConsole()` after a request.
     input_reply_rx: Receiver<InputReply>,
@@ -316,7 +317,7 @@ impl RMain {
         tasks_rx: Receiver<RTaskMain>,
         comm_manager_tx: Sender<CommManagerEvent>,
         r_request_rx: Receiver<RRequest>,
-        input_request_tx: Sender<ShellInputRequest>,
+        stdin_request_tx: Sender<StdInRequest>,
         input_reply_rx: Receiver<InputReply>,
         iopub_tx: Sender<IOPubMessage>,
         kernel_init_tx: Bus<KernelInfo>,
@@ -326,7 +327,7 @@ impl RMain {
             initializing: true,
             r_request_rx,
             comm_manager_tx,
-            input_request_tx,
+            stdin_request_tx,
             input_reply_rx,
             iopub_tx,
             kernel_init_tx,
@@ -804,14 +805,14 @@ impl RMain {
         std::thread::sleep(std::time::Duration::from_millis(100));
 
         unwrap!(
-            self.input_request_tx
-            .send(ShellInputRequest {
+            self.stdin_request_tx
+            .send(StdInRequest::InputRequest(ShellInputRequest {
                 originator: orig,
                 request: InputRequest {
                     prompt,
                     password: false,
                 },
-            }),
+            })),
             Err(err) => panic!("Could not send input request: {}", err)
         )
     }
