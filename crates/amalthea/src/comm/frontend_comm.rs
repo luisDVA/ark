@@ -20,10 +20,17 @@ pub enum FrontendMessage {
     RpcResultError(JsonRpcError),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum JsonRpcResponse {
     Result(JsonRpcResult),
     Error(JsonRpcError),
+}
+
+// FIXME
+impl crate::wire::jupyter_message::MessageType for JsonRpcResponse {
+    fn message_type() -> String {
+        String::from("rpc_reply")
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

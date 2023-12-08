@@ -11,6 +11,7 @@ pub mod comm_info_reply;
 pub mod comm_info_request;
 pub mod comm_msg;
 pub mod comm_open;
+pub mod comm_request;
 pub mod complete_reply;
 pub mod complete_request;
 pub mod display_data;
