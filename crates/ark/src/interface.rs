@@ -978,12 +978,25 @@ impl RMain {
 
     // Use try_from()?
 
-    pub fn call_frontend_method(&self, method: String, params: Vec<serde_json::Value>) -> SEXP {
+    pub fn call_frontend_method(&self, method: String, params: Vec<serde_json::Value>) -> RObject {
         log::trace!("Calling frontend method '{method}'");
 
         let (response_tx, response_rx) = bounded(1);
 
+        // NOTE: Probably simpler to share the originator through a mutex
+        // than pass it around
+        let orig = if let Some(req) = &self.active_request {
+            if let Some(orig) = &req.orig {
+                orig
+            } else {
+                return RObject::from("TODO: Error: No active originator");
+            }
+        } else {
+            return RObject::from("TODO: Error: No active request");
+        };
+
         let request = PositronFrontendRpcRequest {
+            orig: orig.clone(),
             response_tx,
             request: JsonRpcRequest {
                 method: method.clone(),
