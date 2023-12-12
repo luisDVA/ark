@@ -8,6 +8,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use serde_repr::Deserialize_repr;
 
 use crate::wire::client_event::ClientEvent;
 
@@ -20,7 +21,8 @@ pub enum FrontendMessage {
     RpcResultError(JsonRpcError),
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum JsonRpcResponse {
     Result(JsonRpcResult),
     Error(JsonRpcError),
@@ -61,7 +63,7 @@ pub struct JsonRpcErrorData {
     pub code: JsonRpcErrorCode,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize_repr, PartialEq)]
 #[repr(i64)]
 pub enum JsonRpcErrorCode {
     ParseError = -32700,
