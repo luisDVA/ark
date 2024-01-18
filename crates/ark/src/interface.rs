@@ -878,6 +878,8 @@ impl RMain {
             Err(err) => panic!("Failed to read from R buffer: {err:?}"),
         };
 
+        log::trace!("write_console: {content}");
+
         let stream = if otype == 0 {
             Stream::Stdout
         } else {

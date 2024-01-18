@@ -231,6 +231,8 @@ impl Kernel {
             self.connection.endpoint(self.connection.control_port),
         )?;
 
+        log::trace!("hop");
+
         // Internal sockets for notifying the 0MQ forwarding
         // thread that new outbound messages are available
         let outbound_notif_socket_tx = Socket::new_pair(
@@ -251,6 +253,7 @@ impl Kernel {
         )?;
 
         let outbound_rx_clone = outbound_rx.clone();
+        log::trace!("hap");
 
         // Forwarding thread that bridges 0MQ sockets and Amalthea
         // channels. Currently only used by StdIn.
@@ -270,6 +273,7 @@ impl Kernel {
             Self::zmq_notifier_thread(outbound_notif_socket_tx, outbound_rx)
         });
 
+        log::trace!("heh");
         let iopub_tx = self.create_iopub_tx();
 
         spawn!(format!("{}-control", self.name), || {
@@ -282,6 +286,7 @@ impl Kernel {
             log::error!("Control thread exited");
         });
 
+        log::trace!("ok");
         Ok(())
     }
 
@@ -302,6 +307,7 @@ impl Kernel {
         handler: Arc<Mutex<dyn ControlHandler>>,
         stdin_interrupt_tx: Sender<bool>,
     ) {
+        log::trace!("working?");
         let control = Control::new(socket, iopub_tx, handler, stdin_interrupt_tx);
         control.listen();
     }
