@@ -114,6 +114,8 @@ fn start_kernel(
 
     let (stdin_reply_tx, stdin_reply_rx) = unbounded();
 
+    log::trace!("Now initializing sockets");
+
     let res = kernel.connect(
         shell,
         control,
@@ -124,8 +126,10 @@ fn start_kernel(
         stdin_reply_tx,
     );
     if let Err(err) = res {
-        panic!("Couldn't connect to frontend: {err:?}");
+        panic!("Can't initialize sockets: {err:?}");
     }
+
+    log::trace!("Sockets initialized, now starting R");
 
     // Start the R REPL (does not return for the duration of the session)
     ark::interface::start_r(
@@ -140,7 +144,9 @@ fn start_kernel(
         kernel_init_tx,
         lsp_runtime,
         dap,
-    )
+    );
+
+    log::error!("`start_r()` unexpectedly returned");
 }
 
 // Installs the kernelspec JSON file into one of Jupyter's search paths.
