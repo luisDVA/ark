@@ -29,6 +29,10 @@ jobs:
             - name: Checkout sources
               uses: actions/checkout@v4
 
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  key: ${{matrix.arch}}
+
             - name: Setup Build Environment
               run: |
                   sudo apt-get update

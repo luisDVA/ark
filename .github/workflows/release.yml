@@ -132,6 +132,10 @@ jobs:
               run: |
                   echo "~/${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  key: ${{matrix.arch}}
+
             # Compile
             - name: Compile ARK (${{ matrix.arch }})
               env:
@@ -183,6 +187,10 @@ jobs:
         steps:
             - name: Checkout sources
               uses: actions/checkout@v4
+
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  key: ${{matrix.arch}}
 
             - name: Compile ARK
               env:
