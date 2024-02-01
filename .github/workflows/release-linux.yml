@@ -40,7 +40,6 @@ jobs:
 
             - name: Compile ARK (${{ matrix.flavor }})
               run: |
-                  cargo clean
                   cargo build ${{ matrix.flavor == 'release' && '--release' || '' }}
 
             # Compress kernel to a zip file
