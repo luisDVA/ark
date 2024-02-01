@@ -31,7 +31,7 @@ jobs:
 
             - uses: Swatinem/rust-cache@v2
               with:
-                  key: ${{matrix.arch}}
+                  key: ${{ matrix.arch }}${{ matrix.flavor }}
 
             - name: Setup Build Environment
               run: |

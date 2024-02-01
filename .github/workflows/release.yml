@@ -136,7 +136,7 @@ jobs:
             # This would send the data over to github.
             # - uses: Swatinem/rust-cache@v2
             #   with:
-            #       key: ${{matrix.arch}}
+            #     key: ${{ matrix.arch }}${{ matrix.flavor }}
 
             # Compile
             - name: Compile ARK (${{ matrix.arch }})
@@ -191,7 +191,7 @@ jobs:
 
             - uses: Swatinem/rust-cache@v2
               with:
-                  key: ${{matrix.arch}}
+                  key: ${{ matrix.arch }}${{ matrix.flavor }}
 
             - name: Compile ARK
               env:
