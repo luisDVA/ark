@@ -80,9 +80,9 @@ pub fn find_r_shared_library_folder(path: &PathBuf) -> PathBuf {
 }
 
 #[cfg(target_os = "macos")]
-const LIBRARY_PATH_ENVVAR: &'static str = "DYLD_FALLBACK_LIBRARY_PATH";
+pub const LIBRARY_PATH_ENVVAR: &'static str = "DYLD_FALLBACK_LIBRARY_PATH";
 #[cfg(target_os = "linux")]
-const LIBRARY_PATH_ENVVAR: &'static str = "LD_LIBRARY_PATH";
+pub const LIBRARY_PATH_ENVVAR: &'static str = "LD_LIBRARY_PATH";
 
 fn set_library_path_env_var(path: &PathBuf) {
     // In the future, we may add additional paths to the env var beyond just what R

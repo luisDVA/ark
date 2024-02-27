@@ -8,6 +8,7 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
+use harp::sys::library::LIBRARY_PATH_ENVVAR;
 use libr::ptr_R_Busy;
 use libr::ptr_R_ReadConsole;
 use libr::ptr_R_ShowMessage;
@@ -54,6 +55,11 @@ pub fn setup_r(mut args: Vec<*mut c_char>) {
         // Log the value of R_HOME, so we can know if something hairy is afoot
         let home = CStr::from_ptr(R_HomeDir());
         log::trace!("R_HOME: {:?}", home);
+        log::trace!(
+            "{}: {:?}",
+            LIBRARY_PATH_ENVVAR,
+            std::env::var(LIBRARY_PATH_ENVVAR.to_string())
+        );
 
         // Redirect console
         libr::set(R_Consolefile, std::ptr::null_mut());
