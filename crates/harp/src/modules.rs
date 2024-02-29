@@ -60,3 +60,17 @@ pub fn init_modules() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::r_test;
+
+    #[test]
+    fn test_linux_failure() {
+        r_test! {
+
+            panic!("foo");
+
+        }
+    }
+}

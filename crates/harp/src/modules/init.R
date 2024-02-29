@@ -1,3 +1,5 @@
+loadNamespace("utils")
+
 # Invariants:
 #
 # - Return value: List of length 2 [output, error]. These are exclusive.
