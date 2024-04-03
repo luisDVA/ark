@@ -20,6 +20,7 @@ use amalthea::comm::event::CommManagerEvent;
 use amalthea::socket;
 use ark::data_explorer::r_data_explorer::DataObjectEnvInfo;
 use ark::data_explorer::r_data_explorer::RDataExplorer;
+use ark::interface::RMain;
 use ark::lsp::events::EVENTS;
 use ark::r_task;
 use ark::test::r_test;
@@ -30,6 +31,7 @@ use harp::environment::R_ENVS;
 use harp::eval::r_parse_eval0;
 use harp::object::RObject;
 use harp::r_symbol;
+use harp::test::start_r;
 use libr::R_GlobalEnv;
 use libr::Rf_eval;
 
@@ -104,6 +106,8 @@ fn socket_rpc(
 /// into multiple tests since they must be run serially.
 #[test]
 fn test_data_explorer() {
+    start_r();
+
     r_test(|| {
         // --- mtcars ---
 
@@ -501,5 +505,28 @@ fn test_data_explorer() {
                assert_eq!(data[0].null_count, Some(3));
            }
         );
+
+        // --- View() support ---
+
+        // Get a copy of the comm manager channel (on the R main thread) so we
+        // can listen for the comm to open.
+        let comm_manager_rx = RMain::get().get_comm_manager_rx();
+
+        // Bring the sleep data set into the global environment and open a data
+        // explorer for it
+        r_parse_eval0("sleep <- sleep; View(sleep)", R_ENVS.global).unwrap();
+
+        // Wait for the new comm to show up; it should be triggered to open by
+        // the call to `View()` above.
+        let msg = comm_manager_rx
+            .recv_timeout(std::time::Duration::from_secs(1))
+            .unwrap();
+        match msg {
+            CommManagerEvent::Opened(socket, _value) => {
+                assert_eq!(socket.comm_name, "positron.dataExplorer");
+                socket
+            },
+            _ => panic!("Unexpected Comm Manager Event"),
+        };
     });
 }

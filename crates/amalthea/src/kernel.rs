@@ -290,9 +290,11 @@ impl Kernel {
         self.iopub_tx.clone()
     }
 
-    /// Returns a copy of the comm manager sending channel.
-    pub fn create_comm_manager_tx(&self) -> Sender<CommManagerEvent> {
-        self.comm_manager_tx.clone()
+    /// Returns a copy of the comm manager channels.
+    pub fn create_comm_manager_channels(
+        &self,
+    ) -> (Sender<CommManagerEvent>, Receiver<CommManagerEvent>) {
+        (self.comm_manager_tx.clone(), self.comm_manager_rx.clone())
     }
 
     /// Starts the control thread

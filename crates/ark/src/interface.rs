@@ -132,6 +132,7 @@ pub fn start_r(
     startup_file: Option<String>,
     kernel_mutex: Arc<Mutex<Kernel>>,
     comm_manager_tx: Sender<CommManagerEvent>,
+    comm_manager_rx: Receiver<CommManagerEvent>,
     r_request_rx: Receiver<RRequest>,
     stdin_request_tx: Sender<StdInRequest>,
     stdin_reply_rx: Receiver<amalthea::Result<InputReply>>,
@@ -153,6 +154,7 @@ pub fn start_r(
             kernel_mutex,
             tasks_rx,
             comm_manager_tx,
+            comm_manager_rx,
             r_request_rx,
             stdin_request_tx,
             stdin_reply_rx,
@@ -220,6 +222,9 @@ pub struct RMain {
 
     /// Channel used to send along messages relayed on the open comms.
     comm_manager_tx: Sender<CommManagerEvent>,
+
+    /// Copy of comm manager receiver channel.
+    comm_manager_rx: Receiver<CommManagerEvent>,
 
     /// Execution requests from the frontend. Processed from `ReadConsole()`.
     /// Requests for code execution provide input to that method.
@@ -347,6 +352,7 @@ impl RMain {
         kernel: Arc<Mutex<Kernel>>,
         tasks_rx: Receiver<RTaskMain>,
         comm_manager_tx: Sender<CommManagerEvent>,
+        comm_manager_rx: Receiver<CommManagerEvent>,
         r_request_rx: Receiver<RRequest>,
         stdin_request_tx: Sender<StdInRequest>,
         stdin_reply_rx: Receiver<amalthea::Result<InputReply>>,
@@ -359,6 +365,7 @@ impl RMain {
             initializing: true,
             r_request_rx,
             comm_manager_tx,
+            comm_manager_rx,
             stdin_request_tx,
             stdin_reply_rx,
             iopub_tx,
@@ -1037,6 +1044,11 @@ impl RMain {
     pub fn get_comm_manager_tx(&self) -> &Sender<CommManagerEvent> {
         // Read only access to `comm_manager_tx`
         &self.comm_manager_tx
+    }
+
+    pub fn get_comm_manager_rx(&self) -> &Receiver<CommManagerEvent> {
+        // Read only access to `comm_manager_rx`
+        &self.comm_manager_rx
     }
 
     pub fn get_kernel(&self) -> &Arc<Mutex<Kernel>> {

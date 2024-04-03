@@ -96,7 +96,7 @@ fn start_kernel(
     let (stdin_request_tx, stdin_request_rx) = bounded::<StdInRequest>(1);
 
     // Communication channel for `CommEvent`
-    let comm_manager_tx = kernel.create_comm_manager_tx();
+    let (comm_manager_tx, comm_manager_rx) = kernel.create_comm_manager_channels();
 
     // Create the shell.
     let kernel_init_rx = kernel_init_tx.add_rx();
@@ -146,6 +146,7 @@ fn start_kernel(
         startup_file,
         kernel_clone,
         comm_manager_tx,
+        comm_manager_rx,
         r_request_rx,
         stdin_request_tx,
         stdin_reply_rx,

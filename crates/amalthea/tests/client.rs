@@ -48,7 +48,7 @@ fn test_kernel() {
     let mut kernel = Kernel::new("amalthea", connection_file).unwrap();
 
     let shell_tx = kernel.create_iopub_tx();
-    let comm_manager_tx = kernel.create_comm_manager_tx();
+    let (comm_manager_tx, _) = kernel.create_comm_manager_channels();
 
     let (stdin_request_tx, stdin_request_rx) = bounded::<StdInRequest>(1);
     let (stdin_reply_tx, stdin_reply_rx) = unbounded();
