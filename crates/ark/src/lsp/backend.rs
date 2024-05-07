@@ -587,7 +587,7 @@ impl Backend {
 
 struct HandlerSync {
     exclusive: bool,
-    status_tx: TokioSender<bool>,
+    status_tx: TokioSender<()>,
 }
 
 // enum HandlerStatus {
@@ -628,60 +628,45 @@ pub fn start_lsp(runtime: Arc<Runtime>, address: String, conn_init_tx: Sender<bo
             let (sync_tx, mut sync_rx) = tokio_channel::<HandlerSync>(1);
 
             tokio::spawn(async move {
-                let mut pending: VecDeque<HandlerSync> = VecDeque::new();
-                let mut current: Option<HandlerSync> = None;
-
-                // let mut pending_fut = Box::pin(std::future::pending());
-
-                // let mut unblock_current: &mut dyn std::future::Future<
-                //     Output = std::result::Result<(), tokio::sync::mpsc::error::SendError<bool>>,
-                // > = &mut pending_fut;
-
-                // let mut unblock_current: &mut dyn std::future::Future<
-                //     Output = std::result::Result<(), tokio::sync::mpsc::error::SendError<bool>>,
-                // > = &mut pending_fut;
+                let mut pending: VecDeque<TokioSender<()>> = VecDeque::new();
 
                 loop {
-                    if current.is_none() && pending.len() > 0 {
-                        current = pending.pop_front();
-                    }
-
-                    // if current.is_some() {
-                    // unblock_current = &mut current.as_ref().unwrap().status_tx.send(true);
-                    // } else {
-                    //     unblock_current = &mut pending_fut
-                    // };
-
-                    // let unblock_current = current.as_ref().unwrap().status_tx.send(true);
-
-                    let finish_current = || async {
-                        if current.is_some() {
-                            let _res = current.as_ref().unwrap().status_tx.send(true).await;
+                    let maybe_finish_current = || async {
+                        if let Some(status_tx) = pending.front() {
+                            let _res = status_tx.send(()).await;
                         } else {
-                            std::future::pending().await
-                        };
+                            // Wait for a handler to arrive
+                            std::future::pending::<()>().await;
+                        }
                     };
 
                     tokio::select! {
-                        _ = finish_current() => (),
+                        _ = maybe_finish_current() => {
+                            pending.pop_front();
+                        },
                         handler = sync_rx.recv() => {
                             let handler = handler.unwrap();
+
+                            // If this handler requires exclusive access to the
+                            // LSP, typically because it's handling a
+                            // notification that changes the state of the world,
+                            // we first flush all pending handlers before moving on.
                             if handler.exclusive {
-                                // Finish
-                                for hnd in &pending {
-                                    // We could send a cancellation notification at this point
-                                    let _res = hnd.status_tx.send(true).await;
+                                while let Some(status_tx) = pending.pop_front() {
+                                    // We could send a cancellation notification
+                                    // at this point to speed things up
+                                    let _res = status_tx.send(()).await;
                                 }
+
+                                // Now wait until the exclusive handler is finished and unblock it
+                                let _res = handler.status_tx.send(()).await;
+                                continue;
                             }
-                            pending.push_back(handler)
+
+                            // The handler has now started running, queue it up for completion
+                            pending.push_back(handler.status_tx)
                         },
                     }
-                    // } else if pending.len() > 0 {
-                    //     current = pending.pop_front();
-                    // } else {
-                    //     let handler = sync_rx.recv().await;
-                    //     pending.push_back(handler.unwrap());
-                    // }
                 }
             });
 
