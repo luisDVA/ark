@@ -48,6 +48,8 @@ use crate::lsp::indexer::IndexerStateManager;
 use crate::lsp::selection_range::convert_selection_range_from_tree_sitter_to_lsp;
 use crate::lsp::selection_range::selection_range;
 use crate::lsp::signature_help::signature_help;
+use crate::lsp::state::Workspace;
+use crate::lsp::state::WorldState;
 use crate::lsp::statement_range;
 use crate::lsp::symbols;
 use crate::r_task;
@@ -93,27 +95,12 @@ macro_rules! backend_write_method {
     }};
 }
 
-#[derive(Debug)]
-pub struct Workspace {
-    pub folders: Vec<Url>,
-}
-
-impl Default for Workspace {
-    fn default() -> Self {
-        Self {
-            folders: Default::default(),
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct Backend {
     pub lock: Arc<RwLock<()>>,
     sync_tx: TokioSender<HandlerSync>,
     pub client: Client,
-    pub documents: Arc<DashMap<Url, Document>>,
-    pub workspace: Arc<Mutex<Workspace>>,
-    pub indexer_state_manager: IndexerStateManager,
+    pub state: WorldState,
 }
 
 impl Backend {
@@ -135,7 +122,7 @@ impl Backend {
             return fallback();
         });
 
-        let document = unwrap!(self.documents.get(&uri), None => {
+        let document = unwrap!(self.state.documents.get(&uri), None => {
             log::info!("no document for uri {}; reading from disk instead", uri);
             return fallback();
         });
@@ -150,7 +137,7 @@ impl LanguageServer for Backend {
         backend_write_method!(self, "initialize({:#?})", params);
 
         // initialize the set of known workspaces
-        let mut workspace = self.workspace.lock();
+        let mut workspace = self.state.workspace.lock();
 
         // initialize the workspace folders
         let mut folders: Vec<String> = Vec::new();
@@ -166,7 +153,7 @@ impl LanguageServer for Backend {
         }
 
         // start indexing
-        indexer::start(folders, self.indexer_state_manager.clone());
+        indexer::start(folders, self.state.indexer_state_manager.clone());
 
         Ok(InitializeResult {
             server_info: Some(ServerInfo {
@@ -296,7 +283,8 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let version = params.text_document.version;
 
-        self.documents
+        self.state
+            .documents
             .insert(uri.clone(), Document::new(contents, Some(version)));
 
         diagnostics::refresh_diagnostics(self.clone(), uri.clone(), Some(version));
@@ -307,7 +295,7 @@ impl LanguageServer for Backend {
 
         // get reference to document
         let uri = &params.text_document.uri;
-        let mut doc = unwrap!(self.documents.get_mut(uri), None => {
+        let mut doc = unwrap!(self.state.documents.get_mut(uri), None => {
             backend_trace!(self, "did_change(): unexpected document uri '{}'", uri);
             return;
         });
@@ -349,7 +337,7 @@ impl LanguageServer for Backend {
 
         diagnostics::clear_diagnostics(self.clone(), uri.clone(), None);
 
-        match self.documents.remove(&uri) {
+        match self.state.documents.remove(&uri) {
             Some(_) => {
                 backend_trace!(self, "did_close(): closed document with URI: '{uri}'.");
             },
@@ -367,7 +355,7 @@ impl LanguageServer for Backend {
 
         // Get reference to document.
         let uri = &params.text_document_position.text_document.uri;
-        let document = unwrap!(self.documents.get(uri), None => {
+        let document = unwrap!(self.state.documents.get(uri), None => {
             backend_trace!(self, "completion(): No document associated with URI {}", uri);
             return Ok(None);
         });
@@ -414,7 +402,7 @@ impl LanguageServer for Backend {
 
         // get document reference
         let uri = &params.text_document_position_params.text_document.uri;
-        let document = unwrap!(self.documents.get(uri), None => {
+        let document = unwrap!(self.state.documents.get(uri), None => {
             backend_trace!(self, "hover(): No document associated with URI {}", uri);
             return Ok(None);
         });
@@ -451,7 +439,7 @@ impl LanguageServer for Backend {
 
         // get document reference
         let uri = &params.text_document_position_params.text_document.uri;
-        let document = unwrap!(self.documents.get(uri), None => {
+        let document = unwrap!(self.state.documents.get(uri), None => {
             backend_trace!(self, "signature_help(): No document associated with URI {}", uri);
             return Ok(None);
         });
@@ -486,7 +474,7 @@ impl LanguageServer for Backend {
 
         // get reference to document
         let uri = &params.text_document_position_params.text_document.uri;
-        let document = unwrap!(self.documents.get(uri), None => {
+        let document = unwrap!(self.state.documents.get(uri), None => {
             backend_trace!(self, "completion(): No document associated with URI {}", uri);
             return Ok(None);
         });
@@ -518,7 +506,7 @@ impl LanguageServer for Backend {
 
         // Get reference to document
         let uri = &params.text_document.uri;
-        let document = unwrap!(self.documents.get(uri), None => {
+        let document = unwrap!(self.state.documents.get(uri), None => {
             backend_trace!(self, "completion(): No document associated with URI {}", uri);
             return Ok(None);
         });
@@ -676,10 +664,12 @@ pub fn start_lsp(runtime: Arc<Runtime>, address: String, conn_init_tx: Sender<bo
             let backend = Backend {
                 lock: Arc::new(RwLock::new(())),
                 client,
-                documents: Arc::new(DashMap::new()),
-                workspace: Arc::new(Mutex::new(Workspace::default())),
-                indexer_state_manager: IndexerStateManager::new(),
                 sync_tx,
+                state: WorldState {
+                    documents: Arc::new(DashMap::new()),
+                    workspace: Arc::new(Mutex::new(Workspace::default())),
+                    indexer_state_manager: IndexerStateManager::new(),
+                },
             };
 
             // Forward `backend` along to `RMain`.
