@@ -104,6 +104,17 @@ pub struct Backend {
 }
 
 impl Backend {
+    async fn sync_mut<M, R>(&mut self, method: impl FnOnce(&mut WorldState) -> R) -> R {
+        method(&mut self.state)
+    }
+
+    async fn async_mut<R, Fut>(&mut self, method: impl FnOnce(&mut WorldState) -> Fut) -> R
+    where
+        Fut: std::future::Future<Output = R>,
+    {
+        method(&mut self.state).await
+    }
+
     pub fn with_document<T, F>(&self, path: &Path, mut callback: F) -> anyhow::Result<T>
     where
         F: FnMut(&Document) -> anyhow::Result<T>,
@@ -134,81 +145,84 @@ impl Backend {
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
-        backend_write_method!(self, "initialize({:#?})", params);
+        self.async_mut(|state| async {
+            backend_write_method!(self, "initialize({:#?})", params);
 
-        // initialize the set of known workspaces
-        let mut workspace = self.state.workspace.lock();
+            // initialize the set of known workspaces
+            let mut workspace = self.state.workspace.lock();
 
-        // initialize the workspace folders
-        let mut folders: Vec<String> = Vec::new();
-        if let Some(workspace_folders) = params.workspace_folders {
-            for folder in workspace_folders.iter() {
-                workspace.folders.push(folder.uri.clone());
-                if let Ok(path) = folder.uri.to_file_path() {
-                    if let Some(path) = path.to_str() {
-                        folders.push(path.to_string());
+            // initialize the workspace folders
+            let mut folders: Vec<String> = Vec::new();
+            if let Some(workspace_folders) = params.workspace_folders {
+                for folder in workspace_folders.iter() {
+                    workspace.folders.push(folder.uri.clone());
+                    if let Ok(path) = folder.uri.to_file_path() {
+                        if let Some(path) = path.to_str() {
+                            folders.push(path.to_string());
+                        }
                     }
                 }
             }
-        }
 
-        // start indexing
-        indexer::start(folders, self.state.indexer_state_manager.clone());
+            // start indexing
+            indexer::start(folders, self.state.indexer_state_manager.clone());
 
-        Ok(InitializeResult {
-            server_info: Some(ServerInfo {
-                name: "Amalthea R Kernel (ARK)".to_string(),
-                version: Some(env!("CARGO_PKG_VERSION").to_string()),
-            }),
-            capabilities: ServerCapabilities {
-                position_encoding: Some(get_position_encoding_kind()),
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::INCREMENTAL,
-                )),
-                selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
-                hover_provider: Some(HoverProviderCapability::from(true)),
-                completion_provider: Some(CompletionOptions {
-                    resolve_provider: Some(true),
-                    trigger_characters: Some(vec![
-                        "$".to_string(),
-                        "@".to_string(),
-                        ":".to_string(),
-                    ]),
-                    work_done_progress_options: Default::default(),
-                    all_commit_characters: None,
-                    ..Default::default()
+            Ok(InitializeResult {
+                server_info: Some(ServerInfo {
+                    name: "Amalthea R Kernel (ARK)".to_string(),
+                    version: Some(env!("CARGO_PKG_VERSION").to_string()),
                 }),
-                signature_help_provider: Some(SignatureHelpOptions {
-                    trigger_characters: Some(vec![
-                        "(".to_string(),
-                        ",".to_string(),
-                        "=".to_string(),
-                    ]),
-                    retrigger_characters: None,
-                    work_done_progress_options: WorkDoneProgressOptions {
-                        work_done_progress: None,
-                    },
-                }),
-                definition_provider: Some(OneOf::Left(true)),
-                type_definition_provider: None,
-                implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
-                references_provider: Some(OneOf::Left(true)),
-                document_symbol_provider: Some(OneOf::Left(true)),
-                workspace_symbol_provider: Some(OneOf::Left(true)),
-                execute_command_provider: Some(ExecuteCommandOptions {
-                    commands: vec![],
-                    work_done_progress_options: Default::default(),
-                }),
-                workspace: Some(WorkspaceServerCapabilities {
-                    workspace_folders: Some(WorkspaceFoldersServerCapabilities {
-                        supported: Some(true),
-                        change_notifications: Some(OneOf::Left(true)),
+                capabilities: ServerCapabilities {
+                    position_encoding: Some(get_position_encoding_kind()),
+                    text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                        TextDocumentSyncKind::INCREMENTAL,
+                    )),
+                    selection_range_provider: Some(SelectionRangeProviderCapability::Simple(true)),
+                    hover_provider: Some(HoverProviderCapability::from(true)),
+                    completion_provider: Some(CompletionOptions {
+                        resolve_provider: Some(true),
+                        trigger_characters: Some(vec![
+                            "$".to_string(),
+                            "@".to_string(),
+                            ":".to_string(),
+                        ]),
+                        work_done_progress_options: Default::default(),
+                        all_commit_characters: None,
+                        ..Default::default()
                     }),
-                    file_operations: None,
-                }),
-                ..ServerCapabilities::default()
-            },
+                    signature_help_provider: Some(SignatureHelpOptions {
+                        trigger_characters: Some(vec![
+                            "(".to_string(),
+                            ",".to_string(),
+                            "=".to_string(),
+                        ]),
+                        retrigger_characters: None,
+                        work_done_progress_options: WorkDoneProgressOptions {
+                            work_done_progress: None,
+                        },
+                    }),
+                    definition_provider: Some(OneOf::Left(true)),
+                    type_definition_provider: None,
+                    implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
+                    references_provider: Some(OneOf::Left(true)),
+                    document_symbol_provider: Some(OneOf::Left(true)),
+                    workspace_symbol_provider: Some(OneOf::Left(true)),
+                    execute_command_provider: Some(ExecuteCommandOptions {
+                        commands: vec![],
+                        work_done_progress_options: Default::default(),
+                    }),
+                    workspace: Some(WorkspaceServerCapabilities {
+                        workspace_folders: Some(WorkspaceFoldersServerCapabilities {
+                            supported: Some(true),
+                            change_notifications: Some(OneOf::Left(true)),
+                        }),
+                        file_operations: None,
+                    }),
+                    ..ServerCapabilities::default()
+                },
+            })
         })
+        .await
     }
 
     async fn initialized(&self, params: InitializedParams) {
